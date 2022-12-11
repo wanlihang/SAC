@@ -6,7 +6,9 @@ from matplotlib import pyplot as plt
 from tqdm import tqdm
 from visualdl import LogWriter
 
-from ACModel import ACModel
+from Actor import Actor
+from ActorCriticModel import ActorCriticModel
+from DE import DE
 from Memory import Memory
 from SAC import SAC
 from SACAgent import SACAgent
@@ -25,6 +27,9 @@ def moving_average(a, window_size):
 def train_off_policy_agent(env, action_dim, sac_agent, epochs, memory, warmup_steps, batch_size):
     episode_reward_list = []
     max_episode_reward = sys.float_info.min
+    learn_steps = 0
+    # Initialize population
+    population = []
     for i in range(10):
         with tqdm(total=int(epochs / 10), desc='Iteration %d' % i) as pbar:
             for epoch in range(int(epochs / 10)):
@@ -34,6 +39,7 @@ def train_off_policy_agent(env, action_dim, sac_agent, epochs, memory, warmup_st
                 episode_reward = 0
                 # 回合开始
                 for time_step in range(200):
+                    learn_steps += 1
                     if memory.size() < warmup_steps:
                         action = np.random.uniform(-1, 1, size=action_dim)
                     else:
@@ -42,16 +48,27 @@ def train_off_policy_agent(env, action_dim, sac_agent, epochs, memory, warmup_st
                     next_state, reward, done = env.step(action)
 
                     if done:
+                        if memory.size() >= batch_size:
+                            # 差分进化算法
+                            de = DE(population, memory.sample(batch_size), size=time_step)
+                            best_policy = de.evolution()
+                            # sac_agent.alg.hard_update_target(best_policy)
+                            population = []
                         break
 
                     episode_reward += reward
                     memory.append(state, action, reward, next_state)
                     state = next_state
 
+                    population.append(sac_agent.alg.get_actor())
                     # 收集到足够的经验后进行网络的更新
                     if memory.size() >= warmup_steps:
+                        # 梯度更新
                         batch_state, batch_action, batch_reward, batch_next_state = memory.sample(batch_size)
-                        sac_agent.learn(batch_state, batch_action, batch_reward, batch_next_state)
+                        critic_loss, actor_loss = sac_agent.learn(batch_state, batch_action, batch_reward,
+                                                                  batch_next_state)
+                        writer.add_scalar('critic loss', critic_loss.numpy(), learn_steps)
+                        writer.add_scalar('actor loss', actor_loss.numpy(), learn_steps)
 
                 if max_episode_reward < episode_reward:
                     max_episode_reward = episode_reward
@@ -74,14 +91,14 @@ if __name__ == '__main__':
     epochs = 2500
 
     # 初始化超参数
-    WARMUP_STEPS = 5e4
+    WARMUP_STEPS = 5000
     MEMORY_SIZE = int(1e6)
-    BATCH_SIZE = 128
+    BATCH_SIZE = 256
     GAMMA = 0.99
-    TAU = 0.005
+    TAU = 0.001
     ACTOR_LR = 3e-4
     CRITIC_LR = 3e-4
-    ALPHA = 0.2
+    ALPHA = 0.1
 
     # 定义环境、实例化模型
     env = Environment()
@@ -89,7 +106,7 @@ if __name__ == '__main__':
     action_dim = 1
 
     # 初始化 模型，算法，智能体以及经验池
-    model = ACModel(state_dim, action_dim)
+    model = ActorCriticModel(state_dim, action_dim)
     algorithm = SAC(model, gamma=GAMMA, tau=TAU, alpha=ALPHA, actor_lr=ACTOR_LR, critic_lr=CRITIC_LR)
     sac_agent = SACAgent(algorithm)
     memory = Memory(max_size=MEMORY_SIZE, state_dim=state_dim, action_dim=action_dim)

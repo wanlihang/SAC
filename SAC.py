@@ -39,19 +39,18 @@ class SAC:
         critic_loss = self._critic_learn(state, action, reward, next_state)
         actor_loss = self._actor_learn(state)
 
-        self.sync_target()
+        self.soft_update_target()
         return critic_loss, actor_loss
 
     def _critic_learn(self, state, action, reward, next_state):
         with paddle.no_grad():
             next_action, next_log_pro = self.sample(next_state)
             q1_next, q2_next = self.target_model.value(next_state, next_action)
-            target_q = paddle.minimum(q1_next, q2_next) - self.alpha * next_log_pro
-            target_q = reward + self.gamma * target_q
+            min_q_next = paddle.minimum(q1_next, q2_next) - self.alpha * next_log_pro
+            target_q = reward + self.gamma * min_q_next
+
         cur_q1, cur_q2 = self.model.value(state, action)
-
         critic_loss = F.mse_loss(cur_q1, target_q) + F.mse_loss(cur_q2, target_q)
-
         self.critic_optimizer.clear_grad()
         critic_loss.backward()
         self.critic_optimizer.step()
@@ -68,7 +67,13 @@ class SAC:
         self.actor_optimizer.step()
         return actor_loss
 
-    def sync_target(self, decay=None):
+    def soft_update_target(self, decay=None):
         if decay is None:
             decay = 1.0 - self.tau
-        self.model.sync_weights_to(self.target_model, decay=decay)
+        self.model.soft_update(self.target_model, decay=decay)
+
+    def get_actor(self):
+        return self.model.get_actor()
+
+    def hard_update_target(self, actor):
+        self.model.hard_update(actor)

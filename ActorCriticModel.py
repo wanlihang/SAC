@@ -1,12 +1,14 @@
+from copy import deepcopy
+
 import paddle
 
 from Actor import Actor
 from Critic import Critic
 
 
-class ACModel(paddle.nn.Layer):
+class ActorCriticModel(paddle.nn.Layer):
     def __init__(self, state_dim, action_dim):
-        super(ACModel, self).__init__()
+        super(ActorCriticModel, self).__init__()
         self.actor_model = Actor(state_dim, action_dim)
         self.critic_model = Critic(state_dim, action_dim)
 
@@ -22,9 +24,16 @@ class ACModel(paddle.nn.Layer):
     def get_critic_params(self):
         return self.critic_model.parameters()
 
-    def sync_weights_to(self, target_model, decay=0.0):
+    def soft_update(self, target_model, decay=0.0):
         target_vars = dict(target_model.named_parameters())
         for name, var in self.named_parameters():
             target_data = decay * target_vars[name] + (1 - decay) * var
             target_vars[name] = target_data
         target_model.set_state_dict(target_vars)
+
+    def get_actor(self):
+        return deepcopy(self.actor_model)
+
+    def hard_update(self, actor):
+        for target_param, param in zip(self.actor_model.parameters(), actor.parameters()):
+            target_param.data.copy_(param.data)

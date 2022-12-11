@@ -6,6 +6,9 @@ from paddle import nn
 class Critic(paddle.nn.Layer):
     def __init__(self, state_dim, action_dim):
         super(Critic, self).__init__()
+        for m in self.__module__:
+            if isinstance(m, nn.Linear):
+                nn.initializer.XavierUniform(m.weight)
 
         # Q1 network
         self.l1 = nn.Linear(state_dim + action_dim, 256)

@@ -5,7 +5,7 @@ import paddle
 class SACAgent:
     def __init__(self, algorithm):
         self.alg = algorithm
-        self.alg.sync_target(decay=0)
+        self.alg.soft_update_target(decay=0)
 
     def sample(self, state):
         state = paddle.to_tensor(state.reshape(1, -1), dtype='float32')
