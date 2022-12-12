@@ -39,6 +39,11 @@ def train_off_policy_agent(env, action_dim, sac_agent, epochs, memory, warmup_st
                 # 回合开始
                 for time_step in range(200):
                     learn_steps += 1
+
+
+                    # action = sac_agent.sample(state)
+
+
                     if memory.size() < warmup_steps:
                         action = np.random.uniform(-1, 1, size=action_dim)
                     else:
@@ -46,13 +51,14 @@ def train_off_policy_agent(env, action_dim, sac_agent, epochs, memory, warmup_st
 
                     next_state, reward, done = env.step(action)
 
+                    if memory.size() >= batch_size:
+                        # 差分进化算法
+                        population = population[-10:]
+                        de = DE(population, memory.sample(batch_size), size=len(population))
+                        best_policy = de.evolution()
+                        # sac_agent.alg.hard_update_target(best_policy)
+                        population = []
                     if done:
-                        if memory.size() >= batch_size:
-                            # 差分进化算法
-                            de = DE(population, memory.sample(batch_size), size=time_step)
-                            best_policy = de.evolution()
-                            # sac_agent.alg.hard_update_target(best_policy)
-                            population = []
                         break
 
                     episode_reward += reward
