@@ -6,7 +6,6 @@ from matplotlib import pyplot as plt
 from tqdm import tqdm
 from visualdl import LogWriter
 
-from Actor import Actor
 from ActorCriticModel import ActorCriticModel
 from DE import DE
 from Memory import Memory

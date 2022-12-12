@@ -1,3 +1,4 @@
+import math
 from copy import deepcopy
 
 import numpy as np
@@ -32,6 +33,105 @@ class DE(object):
 
         return
 
+    def crossover_inplace(self, gene1, gene2):
+        keys1 = list(gene1.state_dict())
+        keys2 = list(gene2.state_dict())
+
+        for key in keys1:
+            if key not in keys2: continue
+
+            # References to the variable tensors
+            W1 = gene1.state_dict()[key]
+            W2 = gene2.state_dict()[key]
+
+            if len(W1.shape) == 2:  # Weights no bias
+                num_variables = W1.shape[0]
+                # Crossover opertation [Indexed by row]
+                try:
+                    num_cross_overs = random.randint(0, int(num_variables * 0.3))  # Number of Cross overs
+                except:
+                    num_cross_overs = 1
+                for i in range(num_cross_overs):
+                    receiver_choice = random.random()  # Choose which gene to receive the perturbation
+                    if receiver_choice < 0.5:
+                        ind_cr = random.randint(0, W1.shape[0] - 1)  #
+                        W1[ind_cr, :] = W2[ind_cr, :]
+                    else:
+                        ind_cr = random.randint(0, W1.shape[0] - 1)  #
+                        W2[ind_cr, :] = W1[ind_cr, :]
+
+            elif len(W1.shape) == 1:  # Bias or LayerNorm
+                if random.random() < 0.8: continue  # Crossover here with low frequency
+                num_variables = W1.shape[0]
+                # Crossover opertation [Indexed by row]
+                # num_cross_overs = random.randint(0, int(num_variables * 0.05))  # Crossover number
+                for i in range(1):
+                    receiver_choice = random.random()  # Choose which gene to receive the perturbation
+                    if receiver_choice < 0.5:
+                        ind_cr = random.randint(0, W1.shape[0] - 1)  #
+                        W1[ind_cr] = W2[ind_cr]
+                    else:
+                        ind_cr = random.randint(0, W1.shape[0] - 1)  #
+                        W2[ind_cr] = W1[ind_cr]
+
+    def mutate_inplace(self, gene):
+        mut_strength = 0.1
+        num_mutation_frac = 0.05
+        super_mut_strength = 10
+        super_mut_prob = 0.05
+        reset_prob = super_mut_prob + 0.02
+
+        num_params = len(list(gene.parameters()))
+        ssne_probabilities = np.random.uniform(0, 1, num_params) * 2
+
+        for i, param in enumerate(gene.parameters()):  # Mutate each param
+
+            # References to the variable keys
+            W = param.data
+            if len(W.shape) == 2:  # Weights, no bias
+
+                num_weights = W.shape[0] * W.shape[1]
+                ssne_prob = ssne_probabilities[i]
+
+                if random.random() < ssne_prob:
+                    num_mutations = random.randint(0, int(math.ceil(
+                        num_mutation_frac * num_weights)))  # Number of mutation instances
+                    for _ in range(num_mutations):
+                        ind_dim1 = random.randint(0, W.shape[0] - 1)
+                        ind_dim2 = random.randint(0, W.shape[-1] - 1)
+                        random_num = random.random()
+
+                        if random_num < super_mut_prob:  # Super Mutation probability
+                            W[ind_dim1, ind_dim2] += random.gauss(0, super_mut_strength * W[ind_dim1, ind_dim2])
+                        elif random_num < reset_prob:  # Reset probability
+                            W[ind_dim1, ind_dim2] = random.gauss(0, 0.1)
+                        else:  # mutauion even normal
+                            W[ind_dim1, ind_dim2] += random.gauss(0, mut_strength * W[ind_dim1, ind_dim2])
+
+                        # Regularization hard limit
+                        # W[ind_dim1, ind_dim2] = self.regularize_weight(W[ind_dim1, ind_dim2], self.args.weight_magnitude_limit)
+
+            elif len(W.shape) == 1:  # Bias or layernorm
+                num_weights = W.shape[0]
+                ssne_prob = ssne_probabilities[i] * 0.04  # Low probability of mutation here
+
+                if random.random() < ssne_prob:
+                    num_mutations = random.randint(0, int(math.ceil(
+                        num_mutation_frac * num_weights)))  # Number of mutation instances
+                    for _ in range(num_mutations):
+                        ind_dim = random.randint(0, W.shape[0] - 1)
+                        random_num = random.random()
+
+                        if random_num < super_mut_prob:  # Super Mutation probability
+                            W[ind_dim] += random.gauss(0, super_mut_strength * W[ind_dim])
+                        elif random_num < reset_prob:  # Reset probability
+                            W[ind_dim] = random.gauss(0, 1)
+                        else:  # mutauion even normal
+                            W[ind_dim] += random.gauss(0, mut_strength * W[ind_dim])
+
+                        # Regularization hard limit
+                        # W[ind_dim] = self.regularize_weight(W[ind_dim], self.args.weight_magnitude_limit)
+
     # 变异
     def mutate(self):
         self.mutant = []
@@ -58,7 +158,8 @@ class DE(object):
     def crossover_and_select(self):
         for i in range(self.size):
             Jrand = random.randint(0, self.dimension)
-
+            # 随机替换网络参数中数值
+            x = self.mutant[i].state_dict()
 
             for j in range(self.dimension):
                 if random.random() > self.cr and j != Jrand:
