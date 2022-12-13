@@ -2,6 +2,7 @@ import sys
 import time
 
 import numpy as np
+import paddle
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 from visualdl import LogWriter
@@ -37,13 +38,9 @@ def train_off_policy_agent(env, action_dim, sac_agent, epochs, memory, warmup_st
                 # 智能体与环境交互一个回合的回合总奖励
                 episode_reward = 0
                 # 回合开始
-                for time_step in range(200):
+                for time_step in range(10000):
                     learn_steps += 1
-
-
-                    # action = sac_agent.sample(state)
-
-
+                    population.append(sac_agent.alg.get_actor())
                     if memory.size() < warmup_steps:
                         action = np.random.uniform(-1, 1, size=action_dim)
                     else:
@@ -51,13 +48,6 @@ def train_off_policy_agent(env, action_dim, sac_agent, epochs, memory, warmup_st
 
                     next_state, reward, done = env.step(action)
 
-                    if memory.size() >= batch_size:
-                        # 差分进化算法
-                        population = population[-10:]
-                        de = DE(population, memory.sample(batch_size), size=len(population))
-                        best_policy = de.evolution()
-                        # sac_agent.alg.hard_update_target(best_policy)
-                        population = []
                     if done:
                         break
 
@@ -65,7 +55,6 @@ def train_off_policy_agent(env, action_dim, sac_agent, epochs, memory, warmup_st
                     memory.append(state, action, reward, next_state)
                     state = next_state
 
-                    population.append(sac_agent.alg.get_actor())
                     # 收集到足够的经验后进行网络的更新
                     if memory.size() >= warmup_steps:
                         # 梯度更新
@@ -74,6 +63,15 @@ def train_off_policy_agent(env, action_dim, sac_agent, epochs, memory, warmup_st
                                                                   batch_next_state)
                         writer.add_scalar('critic loss', critic_loss.numpy(), learn_steps)
                         writer.add_scalar('actor loss', actor_loss.numpy(), learn_steps)
+
+                if epoch > 0 and epoch % 10 == 0 and memory.size() >= batch_size:
+                    # 差分进化算法
+                    population = population[-10:]
+                    de = DE(population, memory.sample(batch_size), size=len(population))
+                    best_policy = de.evolution()
+                    with paddle.no_grad():
+                        sac_agent.alg.hard_update_target(best_policy)
+                    population = []
 
                 if max_episode_reward < episode_reward:
                     max_episode_reward = episode_reward

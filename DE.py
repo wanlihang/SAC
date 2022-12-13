@@ -7,11 +7,10 @@ from paddle.distribution import Normal
 
 
 class DE(object):
-    def __init__(self, population, memory, factor=0.8, rounds=10, size=10, min_range=-1, max_range=1, cr=0.75):
+    def __init__(self, population, memory, factor=0.8, rounds=10, size=10, min_range=-1, max_range=1, cr=0.8):
         # 初始化种群，从 actor 池获取
         self.population = population
 
-        print()
         # 初始化验证经验池
         self.memory = memory
 
@@ -70,87 +69,22 @@ class DE(object):
 
         return episode_reward
 
-    def crossover_inplace(self, gene1, gene2):
-        keys1 = list(gene1.state_dict())
-        keys2 = list(gene2.state_dict())
-
-        for key in keys1:
-            if key not in keys2: continue
-
-            # References to the variable tensors
-            W1 = gene1.state_dict()[key]
-            W2 = gene2.state_dict()[key]
-
-            if len(W1.shape) == 2:  # Weights no bias
-                num_variables = W1.shape[0]
-                # Crossover opertation [Indexed by row]
-                try:
-                    num_cross_overs = random.randint(0, int(num_variables * 0.3))  # Number of Cross overs
-                except:
-                    num_cross_overs = 1
-                for i in range(num_cross_overs):
-                    receiver_choice = random.random()  # Choose which gene to receive the perturbation
-                    if receiver_choice < 0.5:
-                        ind_cr = random.randint(0, W1.shape[0] - 1)  #
-                        W1[ind_cr, :] = W2[ind_cr, :]
-                    else:
-                        ind_cr = random.randint(0, W1.shape[0] - 1)  #
-                        W2[ind_cr, :] = W1[ind_cr, :]
-
-            elif len(W1.shape) == 1:  # Bias or LayerNorm
-                if random.random() < 0.8: continue  # Crossover here with low frequency
-                num_variables = W1.shape[0]
-                # Crossover opertation [Indexed by row]
-                # num_cross_overs = random.randint(0, int(num_variables * 0.05))  # Crossover number
-                for i in range(1):
-                    receiver_choice = random.random()  # Choose which gene to receive the perturbation
-                    if receiver_choice < 0.5:
-                        ind_cr = random.randint(0, W1.shape[0] - 1)  #
-                        W1[ind_cr] = W2[ind_cr]
-                    else:
-                        ind_cr = random.randint(0, W1.shape[0] - 1)  #
-                        W2[ind_cr] = W1[ind_cr]
-
     # 变异
     def mutate(self):
         self.mutant = []
         for cur_i in range(self.size):
             select_range = [x for x in range(self.size)]
             select_range.remove(cur_i)
-            r0, r1, r2 = np.random.choice(select_range, 3, replace=False)
+            r0, r1, r2 = random.sample(select_range, 3)
 
             tmp = deepcopy(self.population[0])
-
-            self.mutant.append(tmp)
-            break
 
             for tmp_param, r0_param, r1_param, r2_param in zip(tmp.parameters(),
                                                                self.population[r0].parameters(),
                                                                self.population[r1].parameters(),
                                                                self.population[r2].parameters()):
-                self.max_range = paddle.max(tmp_param)
-                self.min_range = paddle.max(tmp_param)
                 with paddle.no_grad():
-                    if len(tmp_param.shape) == 1:
-                        # 遍历 tensor，加入光荣的进化吧
-                        for i in range(tmp_param.shape[0]):
-                            value = r0_param[i] + (r1_param[i] - r2_param[i]) * self.factor
-                            random_num = random.uniform(self.min_range, self.max_range)
-                            if self.min_range <= value <= self.max_range:
-                                tmp_param[i] = value
-                            else:
-                                tmp_param[i] = random_num
-
-                    if len(tmp_param.shape) == 2:
-                        # 遍历 tensor，加入光荣的进化吧
-                        for i in range(tmp_param.shape[0]):
-                            for j in range(tmp_param.shape[1]):
-                                value = r0_param[i][j] + (r1_param[i][j] - r2_param[i][j]) * self.factor
-                                random_num = random.uniform(self.min_range, self.max_range)
-                                if self.min_range <= value <= self.max_range:
-                                    tmp_param[i][j] = value
-                                else:
-                                    tmp_param[i][j] = random_num
+                    tmp_param.set_value(r0_param + (r1_param - r2_param) * self.factor)
 
             self.mutant.append(tmp)
 
@@ -162,37 +96,50 @@ class DE(object):
                                                       self.population[cur_i].parameters()):
                 with paddle.no_grad():
                     if len(mutant_param.shape) == 1:
-                        rand_i = random.randint(0, mutant_param.shape[0])
-                        for i in range(mutant_param.shape[0]):
-                            if random.random() > self.cr and i != rand_i:
-                                mutant_param[i] = population_param[i]
-
+                        if random.random() < self.cr:
+                            continue
+                        for i in range(1):
+                            receiver_choice = random.random()
+                            if receiver_choice < 0.5:
+                                ind_cr = random.randint(0, mutant_param.shape[0] - 1)  #
+                                mutant_param[ind_cr] = population_param[ind_cr]
+                            else:
+                                ind_cr = random.randint(0, mutant_param.shape[0] - 1)  #
+                                population_param[ind_cr] = mutant_param[ind_cr]
+                        self.evolution_network(cur_i)
                     if len(mutant_param.shape) == 2:
-                        rand_i = random.randint(0, mutant_param.shape[0])
-                        rand_j = random.randint(0, mutant_param.shape[1])
-                        for i in range(mutant_param.shape[0]):
-                            for j in range(mutant_param.shape[1]):
-                                if random.random() > self.cr and i != rand_i and j != rand_j:
-                                    mutant_param[i][j] = population_param[i][j]
+                        num_variables = mutant_param.shape[0]
+                        num_cross_overs = random.randint(0, int(num_variables * 0.3))  # Number of Cross overs
+                        for i in range(num_cross_overs):
+                            receiver_choice = random.random()  # Choose which gene to receive the perturbation
+                            if receiver_choice < 0.5:
+                                ind_cr = random.randint(0, mutant_param.shape[0] - 1)  #
+                                mutant_param[ind_cr, :] = population_param[ind_cr, :]
+                            else:
+                                ind_cr = random.randint(0, mutant_param.shape[0] - 1)  #
+                                population_param[ind_cr, :] = mutant_param[ind_cr, :]
 
-                    reward = self.objective_function(self.mutant[cur_i])
-                    # 超过原值则更新
-                    if reward > self.object_function_values[cur_i]:
-                        for target_param, param in zip(self.population[cur_i].parameters(),
-                                                       self.mutant[cur_i].parameters()):
-                            target_param.data.copy_(param.data)
-                        self.object_function_values[cur_i] = reward
+    def evolution_network(self, cur_i):
+        reward = self.objective_function(self.mutant[cur_i])
+        old_reward = self.object_function_values[cur_i]
+        # 超过原值则更新
+        if reward > old_reward:
+            for target_param, param in zip(self.population[cur_i].parameters(),
+                                           self.mutant[cur_i].parameters()):
+                target_param.set_value(param)
+            self.object_function_values[cur_i] = reward
 
     def get_best(self):
         m = max(self.object_function_values)
         i = self.object_function_values.index(m)
-        print("轮数：" + str(self.cur_round))
-        print("最佳个体：" + str(self.population[i]))
-        print("目标函数值：" + str(m))
+        # print("轮数：" + str(self.cur_round))
+        # print("最佳个体：" + str(self.population[i]))
+        # print("目标函数值：" + str(m))
         self.cur_round = self.cur_round + 1
         return self.population[i]
 
     def evolution(self):
+        best_policy = self.get_best()
         while self.cur_round < self.rounds:
             self.mutate()
             self.crossover_and_select()
