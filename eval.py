@@ -1,3 +1,6 @@
+import json
+import logging
+
 import paddle
 from flask import Flask, request
 from paddle.distribution import Normal
@@ -5,12 +8,6 @@ from paddle.distribution import Normal
 from Actor import Actor
 
 app = Flask(__name__)
-
-import logging
-
-@app.route('/')
-def index():
-    return "Hello, World!"
 
 
 def get_action(state):
@@ -47,13 +44,13 @@ def get_action(state):
 
     return action
 
+
 @app.route('/getAction', methods=['POST'])
 def getAction():
     try:
-        state =
-        print(request.get_json())
-
-        responses = get_action('Node')
+        req = request.get_json()
+        state = json.load(req)
+        responses = get_action(state)
     except IndexError as e:
         logging.error(str(e))
         return 'exception:' + str(e)

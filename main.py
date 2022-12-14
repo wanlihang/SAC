@@ -40,7 +40,6 @@ def train_off_policy_agent(env, action_dim, sac_agent, epochs, memory, warmup_st
                 # 回合开始
                 for time_step in range(10000):
                     learn_steps += 1
-                    # population.append(sac_agent.alg.get_actor())
                     if memory.size() < warmup_steps:
                         action = np.random.uniform(-1, 1, size=action_dim)
                     else:
@@ -64,14 +63,15 @@ def train_off_policy_agent(env, action_dim, sac_agent, epochs, memory, warmup_st
                         writer.add_scalar('critic loss', critic_loss.numpy(), learn_steps)
                         writer.add_scalar('actor loss', actor_loss.numpy(), learn_steps)
 
-                # if epoch > 0 and epoch % 10 == 0 and memory.size() >= batch_size:
-                #     # 差分进化算法
-                #     population = population[-10:]
-                #     de = DE(population, memory.sample(batch_size), size=len(population))
-                #     best_policy = de.evolution()
-                #     with paddle.no_grad():
-                #         sac_agent.alg.hard_update_target(best_policy)
-                #     population = []
+                population.append(sac_agent.alg.get_actor())
+                if len(population) == 10:
+                    # 差分进化算法
+                    batch_state, batch_action, batch_reward, batch_next_state = memory.sample(batch_size)
+                    de = DE(population, batch_state, len(population))
+                    best_policy = de.evolution()
+                    with paddle.no_grad():
+                        sac_agent.alg.hard_update_target(best_policy)
+                    population = []
 
                 if max_episode_reward < episode_reward:
                     max_episode_reward = episode_reward

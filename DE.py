@@ -1,22 +1,19 @@
 import random
 from copy import deepcopy
 
-import numpy as np
 import paddle
 from paddle.distribution import Normal
 
 
 class DE(object):
-    def __init__(self, population, memory, factor=0.8, rounds=10, size=10, min_range=-1, max_range=1, cr=0.8):
+    def __init__(self, population, batch_state, factor=0.8, rounds=10, size=10, cr=0.8):
         # 初始化种群，从 actor 池获取
         self.population = population
 
         # 初始化验证经验池
-        self.memory = memory
+        self.batch_state = batch_state
 
         self.dimension = 2
-        self.min_range = min_range
-        self.max_range = max_range
         self.factor = factor
         self.rounds = rounds
         self.size = size
@@ -28,10 +25,9 @@ class DE(object):
     # 目标函数
     def objective_function(self, actor):
         # 计算当前 actor 所有累计 episode_reward
-        batch_state, batch_action, batch_reward, batch_next_state = self.memory
         episode_reward = float()
-        for i in range(batch_state.shape[0]):
-            state = batch_state[i, :]
+        for i in range(self.batch_state.shape[0]):
+            state = self.batch_state[i, :]
             wait_time_list = list(state[-3:])
             state = paddle.to_tensor(state.reshape(1, -1), dtype='float32')
             act_mean, act_log_std = actor(state)
@@ -57,6 +53,8 @@ class DE(object):
                 action = 1
             else:
                 action = 2
+
+            # episode_reward -= wait_time_list[action]
 
             reward_list = [1.0, 0.3, -0.7]
             if wait_time_list[action] == 0.0:
