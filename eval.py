@@ -1,8 +1,8 @@
-import json
 import logging
 
+import numpy as np
 import paddle
-from flask import Flask, request
+from flask import Flask, request, jsonify
 from paddle.distribution import Normal
 
 from Actor import Actor
@@ -17,6 +17,9 @@ def get_action(state):
     actor_state_dict = paddle.load("linear_net.pdparams")
     # 将load后的参数与模型关联起来
     actor.set_state_dict(actor_state_dict)
+
+    # 开始模型求解
+    state = np.array(state)
     state = paddle.to_tensor(state.reshape(1, -1), dtype='float32')
     act_mean, act_log_std = actor(state)
     normal = Normal(act_mean, act_log_std.exp())
@@ -48,8 +51,7 @@ def get_action(state):
 @app.route('/getAction', methods=['POST'])
 def getAction():
     try:
-        req = request.get_json()
-        state = json.load(req)
+        state = request.get_json()
         responses = get_action(state)
     except IndexError as e:
         logging.error(str(e))
@@ -64,7 +66,7 @@ def getAction():
         logging.error(str(e))
         return 'exception:' + str(e)
     else:
-        return responses
+        return jsonify(responses)
 
 
 if __name__ == '__main__':

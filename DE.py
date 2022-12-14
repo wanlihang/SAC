@@ -1,6 +1,7 @@
 import random
 from copy import deepcopy
 
+import numpy as np
 import paddle
 from paddle.distribution import Normal
 
@@ -29,6 +30,7 @@ class DE(object):
         for i in range(self.batch_state.shape[0]):
             state = self.batch_state[i, :]
             wait_time_list = list(state[-3:])
+            state = np.array(state)
             state = paddle.to_tensor(state.reshape(1, -1), dtype='float32')
             act_mean, act_log_std = actor(state)
             normal = Normal(act_mean, act_log_std.exp())
