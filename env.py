@@ -237,4 +237,5 @@ class Environment:
         wait_time = self.node_wait_time[node_name]
         index = wait_time_list.index(wait_time)
         exec_time = self.node_task_cost[node_name][-1]
-        return reward[index]
+        # return reward[index]
+        return - wait_time / 1000

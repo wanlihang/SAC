@@ -77,4 +77,4 @@ class SAC:
         return self.model.get_actor()
 
     def hard_update_target(self, actor):
-        self.model.hard_update(actor)
+        self.model.hard_update(self.target_model, actor)

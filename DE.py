@@ -56,16 +56,16 @@ class DE(object):
             else:
                 action = 2
 
-            # episode_reward -= wait_time_list[action]
+            episode_reward -= wait_time_list[action] / 1000
 
-            reward_list = [1.0, 0.3, -0.7]
-            if wait_time_list[action] == 0.0:
-                episode_reward += reward_list[0]
-            else:
-                wait_time = wait_time_list[action]
-                wait_time_list.sort()
-                index = wait_time_list.index(wait_time)
-                episode_reward += reward_list[index]
+            # reward_list = [1.0, 0.3, -0.7]
+            # if wait_time_list[action] == 0.0:
+            #     episode_reward += reward_list[0]
+            # else:
+            #     wait_time = wait_time_list[action]
+            #     wait_time_list.sort()
+            #     index = wait_time_list.index(wait_time)
+            #     episode_reward += reward_list[index]
 
         return episode_reward
 

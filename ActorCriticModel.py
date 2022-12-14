@@ -34,6 +34,6 @@ class ActorCriticModel(paddle.nn.Layer):
     def get_actor(self):
         return deepcopy(self.actor_model)
 
-    def hard_update(self, actor):
-        for target_param, param in zip(self.actor_model.parameters(), actor.parameters()):
+    def hard_update(self, target_model, actor):
+        for target_param, param in zip(target_model.parameters(), actor.parameters()):
             target_param.set_value(param)
