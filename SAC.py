@@ -33,7 +33,8 @@ class SAC:
         return action[0], log_prob[0]
 
     def save(self):
-        paddle.save(self.model.actor_model.state_dict(), 'net.pdparams')
+        # 保存Layer参数
+        paddle.save(self.model.actor_model.state_dict(), "linear_net.pdparams")
 
     def learn(self, state, action, reward, next_state):
         critic_loss = self._critic_learn(state, action, reward, next_state)
