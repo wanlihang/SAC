@@ -40,10 +40,10 @@ def train_off_policy_agent(env, action_dim, sac_agent, epochs, memory, warmup_st
                 # 回合开始
                 for time_step in range(10000):
                     learn_steps += 1
-                    if memory.size() < warmup_steps:
-                        action = np.random.uniform(-1, 1, size=action_dim)
-                    else:
-                        action = sac_agent.sample(state)
+                    # if memory.size() < warmup_steps:
+                    #     action = np.random.uniform(-1, 1, size=action_dim)
+                    # else:
+                    action = sac_agent.sample(state)
 
                     next_state, reward, done = env.step(action)
 
