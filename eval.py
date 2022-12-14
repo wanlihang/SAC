@@ -1,14 +1,19 @@
-import sys
-
 import paddle
+from flask import Flask, request
 from paddle.distribution import Normal
 
 from Actor import Actor
 
+app = Flask(__name__)
+
+import logging
+
+@app.route('/')
+def index():
+    return "Hello, World!"
+
 
 def get_action(state):
-    # print(state)
-    return
     # 初始化模型
     actor = Actor(30, 1)
     # 载入模型参数
@@ -40,10 +45,30 @@ def get_action(state):
     else:
         action = 2
 
+    return action
+
+@app.route('/getAction', methods=['POST'])
+def getAction():
+    try:
+        state =
+        print(request.get_json())
+
+        responses = get_action('Node')
+    except IndexError as e:
+        logging.error(str(e))
+        return 'exception:' + str(e)
+    except KeyError as e:
+        logging.error(str(e))
+        return 'exception:' + str(e)
+    except ValueError as e:
+        logging.error(str(e))
+        return 'exception:' + str(e)
+    except Exception as e:
+        logging.error(str(e))
+        return 'exception:' + str(e)
+    else:
+        return responses
+
 
 if __name__ == '__main__':
-    argv_list = []
-    for i in range(1, len(sys.argv)):
-        argv_list.append(sys.argv[i])
-        print(sys.argv[i])
-    get_action(argv_list[0])
+    app.run(host="0.0.0.0", port=5000, debug=True)

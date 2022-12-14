@@ -84,8 +84,8 @@ class Environment:
 
         # 更新输入到神经网络中的环境状态变量
         state = self.update_state()
-        # return state
-        return state / np.linalg.norm(state)
+        return state
+        # return state / np.linalg.norm(state)
 
     def step(self, action):
         # 动作转换
@@ -158,7 +158,7 @@ class Environment:
         if not done:
             # 更新环境状态
             state = self.update_state()
-            state /= np.linalg.norm(state)
+            # state /= np.linalg.norm(state)
         return state, reward, done
 
     # 标准化环境状态空间
