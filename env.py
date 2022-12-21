@@ -69,7 +69,7 @@ class Environment:
         self.BEGIN_TIME = time.time()
         self.queue_queue = queue.PriorityQueue()
         self.queue_queue.queue.clear()
-        arrive_time_list = np.random.poisson(1000, 176)
+        arrive_time_list = np.random.poisson(1000, 33)
         # arrive_time_list.sort()
         for index, value in enumerate(arrive_time_list):
             self.queue_queue.put((value / 1000.0, self.TASK_LIST[index % len(self.TASK_LIST)]))

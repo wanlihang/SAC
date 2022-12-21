@@ -73,9 +73,10 @@ def train_off_policy_agent(env, action_dim, sac_agent, epochs, memory, warmup_st
                         sac_agent.alg.hard_update_target(best_policy)
                     population = []
 
-                if max_episode_reward < episode_reward:
-                    max_episode_reward = episode_reward
-                    sac_agent.alg.save()
+                sac_agent.alg.save()
+                # if max_episode_reward < episode_reward:
+                #     max_episode_reward = episode_reward
+                #     sac_agent.alg.save()
 
                 episode_reward_list.append(episode_reward)
 
